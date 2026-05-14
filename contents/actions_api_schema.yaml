@@ -1,0 +1,745 @@
+openapi: 3.1.0
+info:
+  title: Todoist Personal API
+  version: 1.5.0
+  description: Personal Todoist task and structure control for listing, reviewing, creating, updating via Sync API, moving, completing, reopening, deleting, inspecting tasks, and managing projects/sections through Sync commands.
+servers:
+  - url: https://api.todoist.com/api/v1
+
+paths:
+  /tasks:
+    get:
+      operationId: listTasks
+      summary: List active Todoist tasks
+      description: Get active Todoist tasks. Use this for broad read-only review.
+      parameters:
+        - name: project_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: label
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: ids
+          in: query
+          required: false
+          description: Comma-separated task IDs.
+          schema:
+            type: string
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+      responses:
+        "200":
+          description: Active tasks.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: {}
+                additionalProperties: true
+
+    post:
+      operationId: createTask
+      summary: Create a structured Todoist task
+      description: Create a task with explicit structured fields. Use quickAddTask for simple natural-language capture.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - content
+              properties:
+                content:
+                  type: string
+                description:
+                  type: string
+                project_id:
+                  type: string
+                section_id:
+                  type: string
+                parent_id:
+                  type: string
+                child_order:
+                  type: integer
+                day_order:
+                  type: integer
+                  description: Order inside Today or Next 7 Days view.
+                is_collapsed:
+                  type: boolean
+                labels:
+                  type: array
+                  items:
+                    type: string
+                priority:
+                  type: integer
+                  minimum: 1
+                  maximum: 4
+                  description: Todoist API priority. 4 = Todoist UI P1 / very urgent. 1 = Todoist UI P4 / natural.
+                due:
+                  type: object
+                  nullable: true
+                  description: Due date object. Use {"string":"tomorrow","lang":"en"} for natural language, {"date":"YYYY-MM-DD"} for date, or null for no due date.
+                  properties:
+                    string:
+                      type: string
+                    date:
+                      type: string
+                    timezone:
+                      type: string
+                    lang:
+                      type: string
+                      enum: [en, da, pl, zh, ko, de, pt, ja, it, fr, sv, ru, es, nl, fi, nb, tw]
+                  additionalProperties: false
+                deadline:
+                  type: object
+                  nullable: true
+                  description: Deadline object. Use {"date":"YYYY-MM-DD"} or null.
+                  properties:
+                    date:
+                      type: string
+                    lang:
+                      type: string
+                      enum: [en, da, pl, zh, ko, de, pt, ja, it, fr, sv, ru, es, nl, fi, nb, tw]
+                  additionalProperties: false
+                duration:
+                  type: object
+                  nullable: true
+                  description: Duration object or null.
+                  properties:
+                    amount:
+                      type: integer
+                      minimum: 1
+                    unit:
+                      type: string
+                      enum: [minute, day]
+                  required:
+                    - amount
+                    - unit
+                  additionalProperties: false
+              additionalProperties: false
+      responses:
+        "200":
+          description: Created task.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: {}
+                additionalProperties: true
+
+  /tasks/filter:
+    get:
+      operationId: filterTasks
+      summary: Get tasks by Todoist filter query
+      description: Get tasks matching a Todoist filter query, such as today, overdue, or next 7 days.
+      parameters:
+        - name: query
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 1024
+        - name: lang
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+      responses:
+        "200":
+          description: Matching tasks.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: {}
+                additionalProperties: true
+
+  /tasks/quick:
+    post:
+      operationId: quickAddTask
+      summary: Quick Add a Todoist task
+      description: Add a task using Todoist natural language parsing.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - text
+              properties:
+                text:
+                  type: string
+                  description: Natural language task text, e.g. "Buy milk tomorrow at 10:00 #Inbox p1".
+                note:
+                  type: string
+                  nullable: true
+                reminder:
+                  type: string
+                  nullable: true
+                auto_reminder:
+                  type: boolean
+                  default: false
+                meta:
+                  type: boolean
+                  default: false
+              additionalProperties: false
+      responses:
+        "200":
+          description: Quick add result.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: {}
+                additionalProperties: true
+
+  /tasks/{task_id}:
+    get:
+      operationId: getTask
+      summary: Get a single active Todoist task
+      description: Get full details for a single active non-completed task by ID.
+      parameters:
+        - name: task_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: public_key
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Task details.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: {}
+                additionalProperties: true
+
+    delete:
+      operationId: deleteTask
+      summary: Delete a Todoist task
+      description: Permanently delete a task and all subtasks. High-risk action; use only after explicit user confirmation.
+      parameters:
+        - name: task_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Task deleted.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: {}
+                additionalProperties: true
+                nullable: true
+
+  /tasks/{task_id}/move:
+    post:
+      operationId: moveTask
+      summary: Move a Todoist task
+      description: Move a task to another project, section, or parent. Requires explicit user confirmation.
+      parameters:
+        - name: task_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                project_id:
+                  type: string
+                  nullable: true
+                section_id:
+                  type: string
+                  nullable: true
+                parent_id:
+                  type: string
+                  nullable: true
+              additionalProperties: false
+      responses:
+        "200":
+          description: Moved task.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: {}
+                additionalProperties: true
+
+  /tasks/{task_id}/close:
+    post:
+      operationId: closeTask
+      summary: Complete or close a Todoist task
+      description: Close a task. Regular tasks are completed; recurring tasks move to the next occurrence. Requires explicit user confirmation.
+      parameters:
+        - name: task_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Task closed.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: {}
+                additionalProperties: true
+                nullable: true
+
+  /tasks/{task_id}/reopen:
+    post:
+      operationId: reopenTask
+      summary: Reopen a Todoist task
+      description: Reopen a completed task. Ancestor tasks or sections may also be restored.
+      parameters:
+        - name: task_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Task reopened.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: {}
+                additionalProperties: true
+                nullable: true
+
+  /sync:
+    post:
+      operationId: syncCommands
+      summary: Execute Todoist Sync API commands
+      description: Execute Todoist Sync API commands. Use for item_update and structural commands such as section_add/update/delete and project_update. commands must be a JSON-encoded array string.
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+                - commands
+              properties:
+                commands:
+                  type: string
+                  description: JSON-encoded Sync commands array string. Example item_update or section_add commands are documented in the knowledge file.
+              additionalProperties: false
+      responses:
+        "200":
+          description: Sync command result. Check sync_status for ok or errors for each command uuid.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: {}
+                additionalProperties: true
+
+  /tasks/completed/by_completion_date:
+    get:
+      operationId: getCompletedTasksByCompletionDate
+      summary: Get completed tasks by completion date
+      description: Retrieve completed tasks within a completion date range. Useful for undo/review of recently completed tasks.
+      parameters:
+        - name: since
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+          description: Start of completion date range, inclusive, e.g. 2026-05-01T00:00:00Z.
+        - name: until
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+          description: End of completion date range, exclusive.
+        - name: workspace_id
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: project_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: section_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: parent_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: filter_query
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: filter_lang
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+      responses:
+        "200":
+          description: Completed tasks by completion date.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: {}
+                additionalProperties: true
+
+  /tasks/completed/by_due_date:
+    get:
+      operationId: getCompletedTasksByDueDate
+      summary: Get completed tasks by due date
+      description: Retrieve completed tasks within a due date range. Useful for checking whether dated items were already completed.
+      parameters:
+        - name: since
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+        - name: until
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+        - name: workspace_id
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: project_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: section_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: parent_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: filter_query
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: filter_lang
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+      responses:
+        "200":
+          description: Completed tasks by due date.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: {}
+                additionalProperties: true
+
+  /projects:
+    get:
+      operationId: getProjects
+      summary: Get Todoist projects
+      description: Get all active user projects, optionally filtered by folder or workspace.
+      parameters:
+        - name: folder_id
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: workspace_id
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+      responses:
+        "200":
+          description: Projects.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: {}
+                additionalProperties: true
+
+  /sections:
+    get:
+      operationId: getSections
+      summary: Get Todoist sections
+      description: Get active sections, optionally filtered by project.
+      parameters:
+        - name: project_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+      responses:
+        "200":
+          description: Sections.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: {}
+                additionalProperties: true
+
+  /sections/search:
+    get:
+      operationId: searchSections
+      summary: Search Todoist sections
+      description: Search sections by query, optionally within a project.
+      parameters:
+        - name: query
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: project_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+      responses:
+        "200":
+          description: Matching sections.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: {}
+                additionalProperties: true
+
+  /labels:
+    get:
+      operationId: getLabels
+      summary: Get Todoist personal labels
+      description: Get personal labels.
+      parameters:
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+      responses:
+        "200":
+          description: Labels.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: {}
+                additionalProperties: true
+
+  /comments:
+    get:
+      operationId: getComments
+      summary: Get Todoist comments
+      description: Get all comments for a given task or project. Exactly one of task_id or project_id should be supplied.
+      parameters:
+        - name: task_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: project_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+        - name: public_key
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Comments.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: {}
+                additionalProperties: true
+
+    post:
+      operationId: createComment
+      summary: Create a Todoist comment
+      description: Create a comment on a task or project. Requires explicit user confirmation unless the user directly asked to add the note/comment.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - content
+              properties:
+                content:
+                  type: string
+                task_id:
+                  type: string
+                project_id:
+                  type: string
+                uids_to_notify:
+                  type: array
+                  items:
+                    type: integer
+              additionalProperties: false
+      responses:
+        "200":
+          description: Created comment.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: {}
+                additionalProperties: true
